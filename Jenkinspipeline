@@ -1,0 +1,42 @@
+pipeline{
+agent{label 'dev'}
+triggers {
+  pollSCM '* * * * *'
+}
+stages{
+stage ('git'){
+steps{
+checkout([$class: 'GitSCM', branches: [[name: '*/Feature']], extensions: [], userRemoteConfigs: [[credentialsId: '9f3dc9d8-4079-4e42-ad8f-7e7ef66cdfa1', url: 'https://github.com/Rajesh-2007/mavenrepo.git']]])
+}
+}
+stage('package'){
+steps{
+sh 'mvn package'
+}
+}
+stage('sonar'){	
+steps{
+withSonarQubeEnv('sonar') {
+    sh 'mvn sonar:sonar'
+}
+}
+}
+stage('nexus'){
+steps{
+nexusArtifactUploader artifacts: [[artifactId: 'pom.studentapp', classifier: '', file: 'pom.xml', type: 'pom']], credentialsId: '1657dc89-1585-430c-9974-163b4f39f006', groupId: 'pom.com.jdevs', nexusUrl: '13.208.143.21:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'maven-snapshots', version: 'pom.2.5-SNAPSHOT'
+}
+}
+stage('tomcat') {
+  steps {
+    deploy adapters: [tomcat8(credentialsId: 'd0991bd0-ce72-432f-9fb2-c99cbdd4ee70', path: '', url: 'http://13.208.91.49:8080/')], contextPath: null, onFailure: false, war: 'target/*.war'
+  }
+}
+stage('emailnotification'){
+steps{
+  always {
+    emailext body: '"${BUILD_TAG}" -"${BUILD_STATUS}"-"${BUILD_URL}"', subject: '"BUILD_ID=${BUILD_ID}" status', to: 'r.rajesh.pattnayak@gmail.com'
+}
+}
+}
+}
+}
